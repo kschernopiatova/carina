@@ -53,7 +53,8 @@ import org.openqa.selenium.remote.ResponseCodec;
 import org.openqa.selenium.remote.http.HttpClient;
 import org.openqa.selenium.remote.http.HttpRequest;
 import org.openqa.selenium.remote.http.HttpResponse;
-import org.openqa.selenium.remote.http.W3CHttpCommandCodec;
+//import org.openqa.selenium.remote.http.W3CHttpCommandCodec;
+import org.openqa.selenium.remote.codec.w3c.W3CHttpCommandCodec;
 import org.openqa.selenium.remote.service.DriverService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,13 +67,15 @@ import com.qaprosoft.carina.core.foundation.commons.SpecialKeywords;
 import com.qaprosoft.carina.core.foundation.utils.Configuration;
 import com.qaprosoft.carina.core.foundation.utils.Configuration.Parameter;
 import com.qaprosoft.carina.core.foundation.utils.common.CommonUtils;
-import com.qaprosoft.carina.core.foundation.webdriver.httpclient.HttpClientFactoryCustom;
+//import com.qaprosoft.carina.core.foundation.webdriver.httpclient.HttpClientFactoryCustom;
 
 import io.appium.java_client.MobileCommand;
 import io.appium.java_client.internal.Config;
 import io.appium.java_client.remote.AppiumCommandExecutor;
 import io.appium.java_client.remote.AppiumW3CHttpCommandCodec;
-import io.appium.java_client.remote.NewAppiumSessionPayload;
+
+//import io.appium.java_client.remote.NewAppiumSessionPayload;
+
 
 /**
  * EventFiringAppiumCommandExecutor overrides execute command.
@@ -120,8 +123,10 @@ public class EventFiringAppiumCommandExecutor extends HttpCommandExecutor {
     }
 
     public EventFiringAppiumCommandExecutor(URL addressOfRemoteServer) {
-        this(MobileCommand.commandRepository, addressOfRemoteServer, new HttpClientFactoryCustom());
+    	this(MobileCommand.commandRepository, addressOfRemoteServer, HttpClient.Factory.createDefault());
+        //this(MobileCommand.commandRepository, addressOfRemoteServer, new HttpClientFactoryCustom());
     }
+    
     
     protected <B> B getPrivateFieldValue(String fieldName, Class<B> fieldType) {
         Class<?> superclass = getClass().getSuperclass();
@@ -178,12 +183,12 @@ public class EventFiringAppiumCommandExecutor extends HttpCommandExecutor {
         return getPrivateFieldValue("client", HttpClient.class);
     }
 
-    protected HttpClient withRequestsPatchedByIdempotencyKey(HttpClient httpClient) {
+/*    protected HttpClient withRequestsPatchedByIdempotencyKey(HttpClient httpClient) {
         return (request) -> {
-            request.setHeader(IDEMPOTENCY_KEY_HEADER, UUID.randomUUID().toString().toLowerCase());
+            request. setHeader(IDEMPOTENCY_KEY_HEADER, UUID.randomUUID().toString().toLowerCase());
             return httpClient.execute(request);
         };
-    }
+    }*/
 
     private Response createSession(Command command) throws IOException {
         if (getCommandCodec() != null) {
@@ -201,8 +206,9 @@ public class EventFiringAppiumCommandExecutor extends HttpCommandExecutor {
 
                     CountingOutputStream counter = new CountingOutputStream(os);
                     Writer writer = new OutputStreamWriter(counter, UTF_8);
-                    NewAppiumSessionPayload payload = NewAppiumSessionPayload.create(desired);
-                    payload.writeTo(writer);
+                    //TODO:[MS] Clarify
+                    /*NewAppiumSessionPayload payload = NewAppiumSessionPayload.create(desired);
+                    payload.writeTo(writer);*/
 
                     try (InputStream rawIn = os.asByteSource().openBufferedStream();
                          BufferedInputStream contentStream = new BufferedInputStream(rawIn)) {
@@ -212,7 +218,12 @@ public class EventFiringAppiumCommandExecutor extends HttpCommandExecutor {
                         createSessionMethod.setAccessible(true);
 
                         Optional<Result> result = (Optional<Result>) createSessionMethod.invoke(this,
-                                withRequestsPatchedByIdempotencyKey(client), contentStream, counter.getCount());
+                                //withRequestsPatchedByIdempotencyKey(client), contentStream, counter.getCount());
+                                client.with(httpHandler -> req -> {
+                                    req.setHeader(IDEMPOTENCY_KEY_HEADER, UUID.randomUUID().toString().toLowerCase());
+                                    return httpHandler.execute(req);
+                                }), contentStream, counter.getCount());
+
 
                         return result.map(result1 -> {
                             Result toReturn = result.get();
@@ -313,11 +324,13 @@ public class EventFiringAppiumCommandExecutor extends HttpCommandExecutor {
             }
         }
 
-        if (DriverCommand.NEW_SESSION.equals(command.getName())
+        //TODO [MS] this issue solved with appium java-client 8.0 +
+/*        if (DriverCommand.NEW_SESSION.equals(command.getName())
                 && getCommandCodec() instanceof W3CHttpCommandCodec) {
             setCommandCodec(new AppiumW3CHttpCommandCodec());
             getAdditionalCommands().forEach(this::defineCommand);
-        }
+        }*/
+
 
         return response;
     }
