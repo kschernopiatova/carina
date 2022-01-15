@@ -46,6 +46,35 @@ import com.qaprosoft.carina.proxy.SystemProxy;
 public abstract class AbstractCapabilities {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static ArrayList<Integer> firefoxPorts = new ArrayList<Integer>();
+    
+    private static final ArrayList<String> w3cCaps = new ArrayList<String>() {
+        private static final long serialVersionUID = 1L;
+
+        {
+            add("deviceName");
+            add("browserName");
+            add("browserVersion");
+            add("platformName");
+            add("platformVersion");
+            add("acceptSslCerts");
+            add("pageLoadStrategy");
+            add("proxy");
+            add("timeouts");
+            add("proxyType");
+            add("proxyAutoconfigUrl");
+            add("ftpProxy");
+            add("ftpProxyPort");
+            add("httpProxy");
+            add("httpProxyPort");
+            add("sslProxy");
+            add("sslProxyPort");
+            add("socksProxy");
+            add("socksProxyPort");
+            add("socksVersion");
+            add("socksUsername");
+            add("socksPassword");
+        }
+    };
 
     public abstract DesiredCapabilities getCapability(String testName);
     
@@ -70,6 +99,15 @@ public abstract class AbstractCapabilities {
 
     protected DesiredCapabilities initCapabilities(DesiredCapabilities capabilities) {
         // read all properties which starts from "capabilities.*" prefix and add them into desired capabilities.
+        
+        /*
+         * make sure to provide non w3c correctly to avoid on modern w3c clients such errors:
+         * Caused by: java.lang.IllegalArgumentException: Illegal key values seen in w3c capabilities: [carinaTestRunId, enableLog, enableVNC,
+         * enableVideo, fallbackSessionId, provider]
+         */
+        Map<String, Object> providerCaps = new HashMap<>();
+        
+        
         final String prefix = SpecialKeywords.CAPABILITIES + ".";
         @SuppressWarnings({ "unchecked", "rawtypes" })
         Map<String, String> capabilitiesMap = new HashMap(R.CONFIG.getProperties());
@@ -78,20 +116,48 @@ public abstract class AbstractCapabilities {
                 String value = R.CONFIG.get(entry.getKey());                
                 if (!value.isEmpty()) {
                     String cap = entry.getKey().replaceAll(prefix, "");
-                    if ("idleTimeout".equalsIgnoreCase(cap) && isNumber(value)) {
-                        LOGGER.debug("Adding idleTimeout to capabilities as integer");
-                        capabilities.setCapability(cap, Integer.parseInt(value));
-                    } else if ("false".equalsIgnoreCase(value)) {
-                        capabilities.setCapability(cap, false);
-                    } else if ("true".equalsIgnoreCase(value)) {
-                        capabilities.setCapability(cap, true);
+                    
+                    if (w3cCaps.contains(cap)) {
+                        if ("false".equalsIgnoreCase(value)) {
+                            capabilities.setCapability(cap, false);
+                        } else if ("true".equalsIgnoreCase(value)) {
+                            capabilities.setCapability(cap, true);
+                        } else {
+                            capabilities.setCapability(cap, value);
+                        }
                     } else {
-                        capabilities.setCapability(cap, value);
+                        if ("idleTimeout".equalsIgnoreCase(cap) && isNumber(value)) {
+                            LOGGER.debug("Adding idleTimeout to capabilities as integer");
+                            providerCaps.put(cap, Integer.parseInt(value));
+                        } else if ("false".equalsIgnoreCase(value)) {
+                            providerCaps.put(cap, false);
+                        } else if ("true".equalsIgnoreCase(value)) {
+                            providerCaps.put(cap, true);
+                        } else {
+                            providerCaps.put(cap, value);
+                        }
                     }
                 }
             }
         }
-
+        
+        String provider = !Configuration.get(Parameter.PROVIDER).isEmpty() ? Configuration.get(Parameter.PROVIDER) : "zebrunner";
+        // capabilities.setCapability("zebrunner:provider", provider);
+        
+        String optionName = provider;
+        if ("selenium".equalsIgnoreCase(optionName)) {
+            // selenium is default provider name in Zebrunner CE
+            optionName = "selenoid";
+        } else if ("saucelabs".equalsIgnoreCase(optionName)) {
+            // capabilities option for SauceLabs is sauce
+            optionName = "sauce";
+        } else if ("mcloud".equalsIgnoreCase(optionName)) {
+            // capabilities options for MCloud is sauce
+            optionName = "appium";
+        }
+        optionName += ":options";
+        capabilities.setCapability(optionName, providerCaps);
+        
         //TODO: [VD] reorganize in the same way Firefox profiles args/options if any and review other browsers
         // support customization for Chrome args and options
 

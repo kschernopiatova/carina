@@ -50,6 +50,8 @@ public class Configuration {
         BROWSER_LANGUAGE("browser_language"),
 
         SELENIUM_URL("selenium_url"),
+        
+        PROVIDER("provider"),
 
         DRIVER_EVENT_LISTENERS("driver_event_listeners"),
 
