@@ -76,8 +76,6 @@ import com.qaprosoft.carina.core.foundation.webdriver.locator.ExtendedElementLoc
 import com.sun.jersey.core.util.Base64;
 
 import io.appium.java_client.MobileBy;
-import io.appium.java_client.android.AndroidDriver;
-import io.appium.java_client.ios.IOSDriver;
 
 public class ExtendedWebElement implements IWebElement {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -460,12 +458,33 @@ public class ExtendedWebElement implements IWebElement {
         doAction(ACTION_NAME.CLICK, timeout, waitCondition);
     }
     
-	private boolean isMobile() {
-		// TODO: investigating potential class cast exception
-		WebDriver driver = getDriver();
-		return (driver instanceof IOSDriver) || (driver instanceof AndroidDriver);
-	}
+    /**
+     * Click on element by javascript.
+     */
+    public void clickByJs() {
+        clickByJs(EXPLICIT_TIMEOUT);
+    }
 
+    /**
+     * Click on element by javascript.
+     *
+     * @param timeout to wait
+     */
+    public void clickByJs(long timeout) {
+        clickByJs(timeout, getDefaultCondition(getBy()));
+    }
+    
+    /**
+     * Click on element by javascript.
+     *
+     * @param timeout to wait
+     * @param waitCondition
+     *            to check element conditions before action
+     */
+    public void clickByJs(long timeout, ExpectedCondition<?> waitCondition) {
+        doAction(ACTION_NAME.CLICK_BY_JS, timeout, waitCondition);
+    }
+    
     /**
      * Double Click on element.
      */
@@ -1157,6 +1176,8 @@ public class ExtendedWebElement implements IWebElement {
 	public interface ActionSteps {
 		void doClick();
 		
+		void doClickByJs();
+		
 		void doDoubleClick();
 
 		void doRightClick();
@@ -1330,8 +1351,18 @@ public class ExtendedWebElement implements IWebElement {
                         Messager.ELEMENT_NOT_CLICKED.getMessage(getNameWithLocator()));
 
                 element.click();
-
 			}
+			
+            @Override
+            public void doClickByJs() {
+                DriverListener.setMessages(Messager.ELEMENT_CLICKED.getMessage(getName()),
+                        Messager.ELEMENT_NOT_CLICKED.getMessage(getNameWithLocator()));
+
+                // not visible so we can't interact using selenium or actions
+                LOGGER.info("Do click by JavascriptExecutor for element '" + getNameWithLocator());
+                JavascriptExecutor executor = (JavascriptExecutor) getDriver();
+                executor.executeScript("arguments[0].click();", element);
+            }
 			
 			@Override
 			public void doDoubleClick() {
